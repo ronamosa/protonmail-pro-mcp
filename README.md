@@ -11,10 +11,18 @@ An MCP (Model Context Protocol) server that provides email management through Pr
 ## Installation
 
 ```bash
-git clone https://github.com/anyrxo/protonmail-pro-mcp.git
+git clone https://github.com/ronamosa/protonmail-pro-mcp.git
 cd protonmail-pro-mcp
 npm install
-npm run build
+npm link
+```
+
+`npm install` automatically builds the project, and `npm link` makes `protonmail-pro-mcp` available as a global command. On any new machine, the same four commands set everything up.
+
+To verify it's installed:
+
+```bash
+which protonmail-pro-mcp
 ```
 
 ## Configuration
@@ -41,30 +49,49 @@ cp .env.example .env
 
 ## Usage
 
-### Stdio transport (local, for Claude Desktop / Cursor)
+After `npm link`, the server is available as `protonmail-pro-mcp` from anywhere.
+
+### Stdio transport (default -- local use with Claude Code / Desktop / Cursor)
 
 ```bash
-node dist/index.js
+protonmail-pro-mcp
 ```
 
 ### HTTP transport (remote / cloud deployment)
 
 ```bash
-node dist/index.js --transport http --port 3000
+protonmail-pro-mcp --transport http --port 3000
 ```
 
 The server listens on `POST /mcp`, `GET /mcp`, and `DELETE /mcp` (Streamable HTTP). A health check is available at `GET /health`.
 
-### Claude Desktop configuration
+### Claude Code configuration
 
-Add to your Claude Desktop MCP config (`~/.config/claude/claude_desktop_config.json`):
+Add to `~/.claude/claude_code_config.json` (or set with `claude mcp add`):
 
 ```json
 {
   "mcpServers": {
     "protonmail": {
-      "command": "node",
-      "args": ["/path/to/protonmail-pro-mcp/dist/index.js"],
+      "command": "protonmail-pro-mcp",
+      "env": {
+        "PROTONMAIL_USERNAME": "you@protonmail.com",
+        "PROTONMAIL_PASSWORD": "your-bridge-password"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop configuration
+
+Add to `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "protonmail": {
+      "command": "protonmail-pro-mcp",
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -82,8 +109,7 @@ Add to `.cursor/mcp.json` in your project:
 {
   "mcpServers": {
     "protonmail": {
-      "command": "node",
-      "args": ["/path/to/protonmail-pro-mcp/dist/index.js"],
+      "command": "protonmail-pro-mcp",
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -169,6 +195,14 @@ npm run lint         # ESLint
 npm run format       # Prettier
 npm test             # Run tests
 ```
+
+After making changes, rebuild and re-link:
+
+```bash
+npm run build
+```
+
+The global `protonmail-pro-mcp` command is a symlink into this repo's `dist/`, so a rebuild is all that's needed -- no need to re-run `npm link`.
 
 ## Credits
 
