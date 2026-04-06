@@ -50,7 +50,7 @@
     "express": "^5.2.1",
     "imapflow": "^1.0.164",
     "mailparser": "^3.7.1",
-    "nodemailer": "^6.9.15",
+    "nodemailer": "^8.0.4",
     "zod": "^3.25.0"
   },
   "devDependencies": {
