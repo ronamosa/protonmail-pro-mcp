@@ -1,14 +1,46 @@
+<div align="center">
+
 # ProtonMail MCP Server
 
-An MCP (Model Context Protocol) server that provides email management through ProtonMail via Proton Bridge. Send, read, search, and organize emails using any MCP-compatible client (Claude Desktop, Cursor, etc.).
+**Email management for AI agents through ProtonMail and Proton Bridge**
 
-## Prerequisites
+[![MCP SDK](https://img.shields.io/badge/MCP_SDK-v1.29-blue)](https://modelcontextprotocol.io)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)](https://www.typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933)](https://nodejs.org)
 
-- **Node.js** >= 18
-- **Proton Bridge** running locally (required for IMAP; download from [proton.me/mail/bridge](https://proton.me/mail/bridge))
-- A **ProtonMail** account
+Send, read, search, and organize emails from Claude Code, Claude Desktop, Cursor, or any MCP-compatible client.
 
-## Installation
+```mermaid
+flowchart LR
+  subgraph clients [" "]
+    direction TB
+    CC["Claude Code"]
+    CD["Claude Desktop"]
+    CU["Cursor"]
+  end
+
+  MCP["protonmail-pro-mcp<br/>12 tools &middot; Zod validated"]
+
+  subgraph mail [" "]
+    direction TB
+    SMTP["smtp.protonmail.ch"]
+    Bridge["Proton Bridge"]
+  end
+
+  PM(("ProtonMail"))
+
+  CC & CD & CU -->|stdio / HTTP| MCP
+  MCP -->|"SMTP :587"| SMTP
+  MCP -->|"IMAP :1143"| Bridge
+  SMTP & Bridge --> PM
+```
+
+</div>
+
+---
+
+## Quick start
 
 ```bash
 git clone https://github.com/ronamosa/protonmail-pro-mcp.git
@@ -17,62 +49,46 @@ npm install
 npm link
 ```
 
-`npm install` automatically builds the project, and `npm link` makes `protonmail-pro-mcp` available as a global command. On any new machine, the same four commands set everything up.
-
-To verify it's installed:
+Verify the install:
 
 ```bash
 which protonmail-pro-mcp
 ```
 
+> **Prerequisites** -- [Node.js](https://nodejs.org) >= 18 and [Proton Bridge](https://proton.me/mail/bridge) running locally.
+
 ## Configuration
 
-Copy the example environment file and fill in your credentials:
-
 ```bash
-cp .env.example .env
+cp .env.example .env   # then fill in your credentials
 ```
 
 | Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PROTONMAIL_USERNAME` | Yes | | Your ProtonMail email address |
-| `PROTONMAIL_PASSWORD` | Yes | | Your Proton Bridge password (not your login password) |
-| `PROTONMAIL_SMTP_HOST` | No | `smtp.protonmail.ch` | SMTP server host |
-| `PROTONMAIL_SMTP_PORT` | No | `587` | SMTP server port |
-| `PROTONMAIL_IMAP_HOST` | No | `127.0.0.1` | IMAP server host (Proton Bridge) |
-| `PROTONMAIL_IMAP_PORT` | No | `1143` | IMAP server port (Proton Bridge) |
-| `PROTONMAIL_IMAP_TLS` | No | `false` | Enable TLS for IMAP |
-| `PORT` | No | `3000` | HTTP transport port |
-| `DEBUG` | No | `false` | Enable debug logging |
+|:---------|:--------:|:-------:|:------------|
+| `PROTONMAIL_USERNAME` | Yes | -- | Your ProtonMail email address |
+| `PROTONMAIL_PASSWORD` | Yes | -- | Proton Bridge password (not your login password) |
+| `PROTONMAIL_SMTP_HOST` | | `smtp.protonmail.ch` | SMTP server host |
+| `PROTONMAIL_SMTP_PORT` | | `587` | SMTP server port |
+| `PROTONMAIL_IMAP_HOST` | | `127.0.0.1` | IMAP host (Proton Bridge) |
+| `PROTONMAIL_IMAP_PORT` | | `1143` | IMAP port (Proton Bridge) |
+| `PROTONMAIL_IMAP_TLS` | | `false` | Enable TLS for IMAP |
+| `PORT` | | `3000` | HTTP transport port |
+| `DEBUG` | | `false` | Enable debug logging |
 
-> **Security note:** `PROTONMAIL_PASSWORD` is the bridge-generated password, not your ProtonMail login password. Never commit `.env` files to version control.
+> **Security** -- `PROTONMAIL_PASSWORD` is the bridge-generated password, not your ProtonMail login. Never commit `.env` files.
 
 ## Usage
 
-After `npm link`, the server is available as `protonmail-pro-mcp` from anywhere.
+<details>
+<summary><strong>Claude Code</strong></summary>
 
-### Stdio transport (default -- local use with Claude Code / Desktop / Cursor)
-
-```bash
-protonmail-pro-mcp
-```
-
-### HTTP transport (remote / cloud deployment)
-
-```bash
-protonmail-pro-mcp --transport http --port 3000
-```
-
-The server listens on `POST /mcp`, `GET /mcp`, and `DELETE /mcp` (Streamable HTTP). A health check is available at `GET /health`.
-
-### Claude Code configuration
-
-Add to `~/.claude/claude_code_config.json` (or set with `claude mcp add`):
+Add to `~/.claude.json` under `mcpServers`, or run `claude mcp add`:
 
 ```json
 {
   "mcpServers": {
     "protonmail": {
+      "type": "stdio",
       "command": "protonmail-pro-mcp",
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
@@ -83,7 +99,10 @@ Add to `~/.claude/claude_code_config.json` (or set with `claude mcp add`):
 }
 ```
 
-### Claude Desktop configuration
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
 Add to `~/.config/claude/claude_desktop_config.json`:
 
@@ -101,7 +120,10 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 }
 ```
 
-### Cursor configuration
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
 
 Add to `.cursor/mcp.json` in your project:
 
@@ -119,46 +141,104 @@ Add to `.cursor/mcp.json` in your project:
 }
 ```
 
+</details>
+
+<details>
+<summary><strong>HTTP transport (remote deployment)</strong></summary>
+
+```bash
+protonmail-pro-mcp --transport http --port 3000
+```
+
+Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health check at `GET /health`.
+
+</details>
+
 ## Tools
 
-### Email sending
-
-| Tool | Description |
-|------|-------------|
-| `send_email` | Send email with to/cc/bcc, HTML support, priority, reply-to, and attachments |
-| `send_test_email` | Send a quick test email to verify SMTP connectivity |
-
-### Email reading
-
-| Tool | Description |
-|------|-------------|
-| `get_emails` | Fetch emails from a folder with pagination |
-| `get_email_by_id` | Get a specific email with full body and headers |
-| `search_emails` | Search with filters: from, to, subject, date range, flags, attachments |
-
-### Email actions
-
-| Tool | Description |
-|------|-------------|
-| `mark_email_read` | Mark an email as read or unread |
-| `star_email` | Star or unstar an email |
-| `move_email` | Move an email to a different folder |
-| `delete_email` | Soft-delete (move to Trash); permanent delete only if already in Trash |
-
-### Folder management
-
-| Tool | Description |
-|------|-------------|
-| `get_folders` | List all folders with message counts |
-| `sync_folders` | Force-refresh the folder list from the server |
-
-### System
-
-| Tool | Description |
-|------|-------------|
-| `get_connection_status` | Check SMTP and IMAP connection status |
+| | Tool | Description |
+|:--|:-----|:------------|
+| **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, attachments |
+| | `send_test_email` | Quick test email to verify SMTP |
+| **Read** | `get_emails` | Fetch from a folder with pagination |
+| | `get_email_by_id` | Full email with body and headers |
+| | `search_emails` | Filter by from, to, subject, date, flags, attachments |
+| **Act** | `mark_email_read` | Mark read or unread |
+| | `star_email` | Star or unstar |
+| | `move_email` | Move between folders |
+| | `delete_email` | Soft-delete to Trash; permanent only if already in Trash |
+| **Folders** | `get_folders` | List all folders with message counts |
+| | `sync_folders` | Force-refresh folder list |
+| **System** | `get_connection_status` | SMTP and IMAP connection health |
 
 ## Architecture
+
+```mermaid
+flowchart LR
+  subgraph clients [MCP Clients]
+    ClaudeCode[Claude Code]
+    ClaudeDesktop[Claude Desktop]
+    CursorIDE[Cursor]
+  end
+
+  subgraph transport [Transport Layer]
+    STDIO[stdio]
+    HTTP["Streamable HTTP<br/>:3000/mcp"]
+  end
+
+  subgraph server [protonmail-pro-mcp]
+    McpServer["McpServer<br/>Zod validation"]
+
+    subgraph toolGroups [Tools]
+      direction TB
+      Sending["send_email<br/>send_test_email"]
+      Reading["get_emails<br/>get_email_by_id<br/>search_emails"]
+      Actions["mark_read / star<br/>move / delete"]
+      FolderTools["get_folders<br/>sync_folders"]
+      SystemTools["connection_status"]
+    end
+
+    subgraph services [Services]
+      SmtpSvc["SMTP Service<br/>nodemailer"]
+      ImapSvc["IMAP Service<br/>imapflow"]
+    end
+  end
+
+  subgraph infra [ProtonMail Infrastructure]
+    SmtpServer["smtp.protonmail.ch<br/>:587 STARTTLS"]
+    Bridge["Proton Bridge<br/>127.0.0.1:1143"]
+    ProtonServers["ProtonMail<br/>Servers"]
+  end
+
+  ClaudeCode --> STDIO
+  ClaudeDesktop --> STDIO
+  CursorIDE --> STDIO
+  ClaudeCode -.-> HTTP
+
+  STDIO --> McpServer
+  HTTP --> McpServer
+
+  McpServer --> Sending
+  McpServer --> Reading
+  McpServer --> Actions
+  McpServer --> FolderTools
+  McpServer --> SystemTools
+
+  Sending --> SmtpSvc
+  SystemTools --> SmtpSvc
+  Reading --> ImapSvc
+  Actions --> ImapSvc
+  FolderTools --> ImapSvc
+  SystemTools --> ImapSvc
+
+  SmtpSvc -->|"SMTP / TLS"| SmtpServer
+  ImapSvc -->|"IMAP"| Bridge
+  SmtpServer --> ProtonServers
+  Bridge -->|"encrypted tunnel"| ProtonServers
+```
+
+<details>
+<summary><strong>Project structure</strong></summary>
 
 ```
 src/
@@ -178,13 +258,19 @@ src/
     system.ts         get_connection_status
 ```
 
-Key design decisions:
+</details>
+
+<details>
+<summary><strong>Design decisions</strong></summary>
+
 - **McpServer API** (SDK v1.29+) with Zod input validation on every tool
 - **Tool annotations** (`readOnlyHint`, `destructiveHint`, `openWorldHint`) per MCP spec
-- **Dual transport**: stdio for local use, Streamable HTTP for remote deployment
-- **Lazy connections**: SMTP and IMAP connect on first use, not at startup
-- **Credential redaction**: passwords are scrubbed from all log output
-- **Soft delete**: `delete_email` moves to Trash first; only permanently deletes from Trash
+- **Dual transport** -- stdio for local use, Streamable HTTP for remote deployment
+- **Lazy connections** -- SMTP and IMAP connect on first use, not at startup
+- **Credential redaction** -- passwords scrubbed from all log output
+- **Soft delete** -- `delete_email` moves to Trash first; permanent delete only from Trash
+
+</details>
 
 ## Development
 
@@ -194,19 +280,12 @@ npm run typecheck    # Type checking without emit
 npm run lint         # ESLint
 npm run format       # Prettier
 npm test             # Run tests
+npm run build        # Rebuild (symlink picks up changes automatically)
 ```
-
-After making changes, rebuild and re-link:
-
-```bash
-npm run build
-```
-
-The global `protonmail-pro-mcp` command is a symlink into this repo's `dist/`, so a rebuild is all that's needed -- no need to re-run `npm link`.
 
 ## Credits
 
-This project was originally scaffolded from [anyrxo/protonmail-pro-mcp](https://github.com/anyrxo/protonmail-pro-mcp) and has been completely rewritten with a modern MCP SDK, Zod validation, dual transport support, and full tool implementations.
+Originally scaffolded from [anyrxo/protonmail-pro-mcp](https://github.com/anyrxo/protonmail-pro-mcp). Completely rewritten with modern MCP SDK, Zod validation, dual transport, and full tool implementations.
 
 ## License
 
