@@ -27,12 +27,13 @@ describe("server tool registration", () => {
     await client.connect(clientTransport);
   });
 
-  it("lists all 12 expected tools", async () => {
+  it("lists all 13 expected tools", async () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
     expect(toolNames).toEqual([
       "delete_email",
+      "get_attachment",
       "get_connection_status",
       "get_email_by_id",
       "get_emails",
@@ -72,6 +73,28 @@ describe("server tool registration", () => {
 
     expect(deleteTool).toBeDefined();
     expect(deleteTool!.annotations?.destructiveHint).toBe(true);
+  });
+
+  it("get_email_by_id has format and includeBody parameters", async () => {
+    const result = await client.listTools();
+    const tool = result.tools.find((t) => t.name === "get_email_by_id");
+
+    expect(tool).toBeDefined();
+    const props = tool!.inputSchema.properties as Record<string, { type?: string; enum?: string[] }>;
+    expect(props.format).toBeDefined();
+    expect(props.format.enum).toEqual(["text", "html", "raw"]);
+    expect(props.includeBody).toBeDefined();
+    expect(props.includeBody.type).toBe("boolean");
+  });
+
+  it("get_attachment requires emailId and filename", async () => {
+    const result = await client.listTools();
+    const tool = result.tools.find((t) => t.name === "get_attachment");
+
+    expect(tool).toBeDefined();
+    expect(tool!.inputSchema.required).toContain("emailId");
+    expect(tool!.inputSchema.required).toContain("filename");
+    expect(tool!.annotations?.readOnlyHint).toBe(true);
   });
 
   it("get_emails has readOnlyHint annotation", async () => {
