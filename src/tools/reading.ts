@@ -69,6 +69,10 @@ export function registerReadingTools(
     "Get a specific email by its ID with full body and headers",
     {
       emailId: z.string().describe("Email ID (format: folder:uid)"),
+      format: z.enum(["text", "html", "raw"]).default("text")
+        .describe("Body format: text (default), html, or raw (both)"),
+      includeBody: z.boolean().default(true)
+        .describe("Include email body (set false for headers/metadata only)"),
     },
     {
       title: "Get Email by ID",
@@ -76,7 +80,7 @@ export function registerReadingTools(
       destructiveHint: false,
       openWorldHint: true,
     },
-    async ({ emailId }) => {
+    async ({ emailId, format, includeBody }) => {
       try {
         const email = await imap.getEmailById(emailId);
         if (!email) {
@@ -91,16 +95,84 @@ export function registerReadingTools(
           };
         }
 
+        const result = { ...email };
+        if (!includeBody) {
+          delete result.body;
+          delete result.html;
+          delete result.snippet;
+        } else if (format === "text") {
+          delete result.html;
+        } else if (format === "html") {
+          delete result.body;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(email, null, 2),
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
       } catch (err) {
         logger.error("Failed to get email", "GetEmailById", err);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.tool(
+    "get_attachment",
+    "Download a specific attachment from an email",
+    {
+      emailId: z.string().describe("Email ID (format: folder:uid)"),
+      filename: z.string().describe("Attachment filename to retrieve"),
+    },
+    {
+      title: "Get Attachment",
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+    async ({ emailId, filename }) => {
+      try {
+        const attachment = await imap.getAttachment(emailId, filename);
+        if (!attachment) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: "Attachment not found",
+                  emailId,
+                  filename,
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(attachment, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        logger.error("Failed to get attachment", "GetAttachment", err);
         return {
           content: [
             {

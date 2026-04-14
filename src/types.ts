@@ -3,6 +3,13 @@ export interface EmailAddress {
   address: string;
 }
 
+export interface AttachmentMeta {
+  filename: string;
+  contentType: string;
+  size: number;
+  cid?: string;
+}
+
 export interface EmailMessage {
   id: string;
   uid: number;
@@ -17,6 +24,7 @@ export interface EmailMessage {
   isRead: boolean;
   isStarred: boolean;
   hasAttachments: boolean;
+  attachments?: AttachmentMeta[];
   folder: string;
   snippet?: string;
 }
@@ -75,6 +83,10 @@ export interface ImapService {
   ): Promise<void>;
   moveEmail(emailId: string, targetFolder: string): Promise<void>;
   deleteEmail(emailId: string): Promise<void>;
+  getAttachment(
+    emailId: string,
+    filename: string,
+  ): Promise<{ filename: string; contentType: string; content: string } | null>;
 }
 
 export interface SearchCriteria {

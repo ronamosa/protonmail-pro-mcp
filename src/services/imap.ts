@@ -10,6 +10,16 @@ import type {
 } from "../types.js";
 import { logger } from "../logger.js";
 
+const stripInlineImages = (html: string) =>
+  html.replace(/data:image\/[^;]+;base64,[^"'\s)]+/g, "[inline image removed]");
+
+const MAX_BODY_CHARS = 50_000;
+function truncateBody(text: string): string {
+  if (text.length <= MAX_BODY_CHARS) return text;
+  return text.slice(0, MAX_BODY_CHARS) +
+    `\n[...truncated: ${text.length - MAX_BODY_CHARS} more chars]`;
+}
+
 function toAddressList(
   input: AddressObject | AddressObject[] | undefined,
 ): EmailAddress[] {
@@ -93,11 +103,17 @@ export function createImapService(config: Config): ImapService {
       to: toAddressList(parsed.to as AddressObject | AddressObject[] | undefined),
       cc: parsed.cc ? toAddressList(parsed.cc as AddressObject | AddressObject[] | undefined) : undefined,
       date: (parsed.date ?? new Date()).toISOString(),
-      body: parsed.text || undefined,
-      html: parsed.html || undefined,
+      body: parsed.text ? truncateBody(parsed.text) : undefined,
+      html: parsed.html ? truncateBody(stripInlineImages(parsed.html)) : undefined,
       isRead: flags?.has("\\Seen") ?? false,
       isStarred: flags?.has("\\Flagged") ?? false,
       hasAttachments: (parsed.attachments?.length ?? 0) > 0,
+      attachments: parsed.attachments?.map((a) => ({
+        filename: a.filename || "unnamed",
+        contentType: a.contentType,
+        size: a.size,
+        cid: a.cid || undefined,
+      })),
       folder,
       snippet: parsed.text?.slice(0, 200),
     };
@@ -175,6 +191,39 @@ export function createImapService(config: Config): ImapService {
         return parseFetchedMessage(msg.uid, msg.source, folder, msg.flags);
       } catch (err) {
         logger.warn(`Email not found: ${emailId}`, "IMAP", err);
+        return null;
+      } finally {
+        lock.release();
+      }
+    },
+
+    async getAttachment(
+      emailId: string,
+      filename: string,
+    ): Promise<{ filename: string; contentType: string; content: string } | null> {
+      const { folder, uid } = idToUid(emailId);
+      const imap = await ensureConnected();
+      const lock = await imap.getMailboxLock(folder);
+      try {
+        const msg = await imap.fetchOne(String(uid), {
+          source: true,
+          uid: true,
+        }, { uid: true });
+        if (!msg || !("source" in msg) || !msg.source) return null;
+
+        const parsed = await simpleParser(Buffer.from(msg.source));
+        const attachment = parsed.attachments?.find(
+          (a) => (a.filename || "unnamed") === filename,
+        );
+        if (!attachment) return null;
+
+        return {
+          filename: attachment.filename || "unnamed",
+          contentType: attachment.contentType,
+          content: attachment.content.toString("base64"),
+        };
+      } catch (err) {
+        logger.warn(`Attachment not found: ${emailId}/${filename}`, "IMAP", err);
         return null;
       } finally {
         lock.release();
