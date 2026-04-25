@@ -88,14 +88,14 @@ export function registerDraftTools(
     },
     async ({ draftId, to, cc, bcc, subject, body, isHtml, replyTo }) => {
       try {
-        await imap.deleteEmail(draftId);
-
         const raw = buildRfc822Message(
           { to, cc, bcc, subject, body, isHtml, replyTo },
           username,
         );
         const { uid } = await imap.appendMessage("Drafts", raw, ["\\Draft"]);
         const newDraftId = `Drafts:${uid}`;
+
+        await imap.deleteEmail(draftId);
 
         return {
           content: [
@@ -225,6 +225,7 @@ export function registerDraftTools(
         const result = await smtp.send({
           to,
           cc: email.cc?.map((a) => a.address).join(", "),
+          bcc: email.bcc?.map((a) => a.address).join(", "),
           subject: email.subject,
           body: email.html ?? email.body ?? "",
           isHtml: !!email.html,
