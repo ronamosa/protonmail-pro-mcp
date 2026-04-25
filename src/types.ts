@@ -43,6 +43,16 @@ export interface ConnectionStatus {
   imap: { connected: boolean; error?: string };
 }
 
+export interface DraftOptions {
+  to?: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  body: string;
+  isHtml?: boolean;
+  replyTo?: string;
+}
+
 export interface SendEmailOptions {
   to: string;
   cc?: string;
@@ -87,6 +97,11 @@ export interface ImapService {
     emailId: string,
     filename: string,
   ): Promise<{ filename: string; contentType: string; content: string } | null>;
+  appendMessage(
+    folder: string,
+    rawMessage: string | Buffer,
+    flags?: string[],
+  ): Promise<{ uid: number }>;
 }
 
 export interface SearchCriteria {

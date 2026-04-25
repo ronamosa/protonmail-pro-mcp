@@ -27,11 +27,13 @@ describe("server tool registration", () => {
     await client.connect(clientTransport);
   });
 
-  it("lists all 13 expected tools", async () => {
+  it("lists all 17 expected tools", async () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
     expect(toolNames).toEqual([
+      "create_draft",
+      "delete_draft",
       "delete_email",
       "get_attachment",
       "get_connection_status",
@@ -41,10 +43,12 @@ describe("server tool registration", () => {
       "mark_email_read",
       "move_email",
       "search_emails",
+      "send_draft",
       "send_email",
       "send_test_email",
       "star_email",
       "sync_folders",
+      "update_draft",
     ]);
   });
 

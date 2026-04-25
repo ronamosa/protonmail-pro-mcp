@@ -7,6 +7,7 @@ import type {
   EmailFolder,
   ImapService,
   SearchCriteria,
+  DraftOptions,
 } from "../types.js";
 import { logger } from "../logger.js";
 
@@ -41,6 +42,29 @@ function idToUid(id: string): { folder: string; uid: number } {
   const sep = id.lastIndexOf(":");
   if (sep === -1) throw new Error(`Invalid email ID format: ${id}`);
   return { folder: id.slice(0, sep), uid: parseInt(id.slice(sep + 1), 10) };
+}
+
+export function buildRfc822Message(
+  options: DraftOptions,
+  fromAddress: string,
+): string {
+  const lines: string[] = [];
+  lines.push(`From: ${fromAddress}`);
+  if (options.to) lines.push(`To: ${options.to}`);
+  if (options.cc) lines.push(`Cc: ${options.cc}`);
+  if (options.bcc) lines.push(`Bcc: ${options.bcc}`);
+  lines.push(`Subject: ${options.subject}`);
+  if (options.replyTo) lines.push(`Reply-To: ${options.replyTo}`);
+  lines.push(`Date: ${new Date().toUTCString()}`);
+  lines.push("MIME-Version: 1.0");
+  lines.push(
+    options.isHtml
+      ? "Content-Type: text/html; charset=utf-8"
+      : "Content-Type: text/plain; charset=utf-8",
+  );
+  lines.push("");
+  lines.push(options.body);
+  return lines.join("\r\n");
 }
 
 export function createImapService(config: Config): ImapService {
@@ -375,6 +399,20 @@ export function createImapService(config: Config): ImapService {
       } finally {
         lock.release();
       }
+    },
+
+    async appendMessage(
+      folder: string,
+      rawMessage: string | Buffer,
+      flags?: string[],
+    ): Promise<{ uid: number }> {
+      const imap = await ensureConnected();
+      const result = await imap.append(folder, rawMessage, flags ?? []);
+      if (!result || result.uid == null) {
+        throw new Error(`IMAP APPEND to ${folder} failed or server did not return a UID`);
+      }
+      logger.info(`Appended message to ${folder} (uid: ${result.uid})`, "IMAP");
+      return { uid: result.uid };
     },
   };
 }
