@@ -6,6 +6,7 @@ import { registerSendingTools } from "./tools/sending.js";
 import { registerReadingTools } from "./tools/reading.js";
 import { registerActionTools } from "./tools/actions.js";
 import { registerFolderTools } from "./tools/folders.js";
+import { registerDraftTools } from "./tools/drafts.js";
 import { registerSystemTools } from "./tools/system.js";
 import type { SmtpService, ImapService } from "./types.js";
 
@@ -29,6 +30,7 @@ export function createServer(config: Config): ProtonMailServer {
   registerReadingTools(mcpServer, imap);
   registerActionTools(mcpServer, imap);
   registerFolderTools(mcpServer, imap);
+  registerDraftTools(mcpServer, imap, smtp, config.PROTONMAIL_USERNAME);
   registerSystemTools(mcpServer, smtp, imap);
 
   return {

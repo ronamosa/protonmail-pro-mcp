@@ -20,7 +20,7 @@ flowchart LR
     CU["Cursor"]
   end
 
-  MCP["protonmail-pro-mcp<br/>12 tools &middot; Zod validated"]
+  MCP["protonmail-pro-mcp<br/>16 tools &middot; Zod validated"]
 
   subgraph mail [" "]
     direction TB
@@ -163,6 +163,10 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 | **Read** | `get_emails` | Fetch from a folder with pagination |
 | | `get_email_by_id` | Full email with body and headers |
 | | `search_emails` | Filter by from, to, subject, date, flags, attachments |
+| **Drafts** | `create_draft` | Create a new draft in the Drafts folder |
+| | `update_draft` | Replace an existing draft with new content |
+| | `delete_draft` | Delete a draft |
+| | `send_draft` | Send a draft via SMTP and remove it from Drafts |
 | **Act** | `mark_email_read` | Mark read or unread |
 | | `star_email` | Star or unstar |
 | | `move_email` | Move between folders |
@@ -193,6 +197,7 @@ flowchart LR
       direction TB
       Sending["send_email<br/>send_test_email"]
       Reading["get_emails<br/>get_email_by_id<br/>search_emails"]
+      Drafts["create_draft / update_draft<br/>delete_draft / send_draft"]
       Actions["mark_read / star<br/>move / delete"]
       FolderTools["get_folders<br/>sync_folders"]
       SystemTools["connection_status"]
@@ -220,11 +225,14 @@ flowchart LR
 
   McpServer --> Sending
   McpServer --> Reading
+  McpServer --> Drafts
   McpServer --> Actions
   McpServer --> FolderTools
   McpServer --> SystemTools
 
   Sending --> SmtpSvc
+  Drafts --> SmtpSvc
+  Drafts --> ImapSvc
   SystemTools --> SmtpSvc
   Reading --> ImapSvc
   Actions --> ImapSvc
@@ -253,6 +261,7 @@ src/
   tools/
     sending.ts        send_email, send_test_email
     reading.ts        get_emails, get_email_by_id, search_emails
+    drafts.ts         create_draft, update_draft, delete_draft, send_draft
     actions.ts        mark_email_read, star_email, move_email, delete_email
     folders.ts        get_folders, sync_folders
     system.ts         get_connection_status
