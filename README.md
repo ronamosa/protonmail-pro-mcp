@@ -4,6 +4,8 @@
 
 **Email management for AI agents through ProtonMail and Proton Bridge**
 
+[![CI](https://github.com/ronamosa/protonmail-pro-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ronamosa/protonmail-pro-mcp/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@sirency/protonmail-pro-mcp)](https://www.npmjs.com/package/@sirency/protonmail-pro-mcp)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-v1.29-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -41,6 +43,21 @@ flowchart LR
 ---
 
 ## Quick start
+
+### Install from npm (recommended)
+
+```bash
+npx @sirency/protonmail-pro-mcp
+```
+
+Or install globally:
+
+```bash
+npm install -g @sirency/protonmail-pro-mcp
+protonmail-pro-mcp
+```
+
+### Install from source
 
 ```bash
 git clone https://github.com/ronamosa/protonmail-pro-mcp.git
@@ -89,7 +106,8 @@ Add to `~/.claude.json` under `mcpServers`, or run `claude mcp add`:
   "mcpServers": {
     "protonmail": {
       "type": "stdio",
-      "command": "protonmail-pro-mcp",
+      "command": "npx",
+      "args": ["@sirency/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -110,7 +128,8 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "protonmail": {
-      "command": "protonmail-pro-mcp",
+      "command": "npx",
+      "args": ["@sirency/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -131,7 +150,8 @@ Add to `.cursor/mcp.json` in your project:
 {
   "mcpServers": {
     "protonmail": {
-      "command": "protonmail-pro-mcp",
+      "command": "npx",
+      "args": ["@sirency/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
