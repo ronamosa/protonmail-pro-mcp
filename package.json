@@ -1,5 +1,5 @@
 {
-  "name": "@sirency/protonmail-pro-mcp",
+  "name": "@ronamosa/protonmail-pro-mcp",
   "version": "2.0.0",
   "description": "ProtonMail MCP server for email management via Proton Bridge. Supports SMTP sending, IMAP reading, and folder management through the Model Context Protocol.",
   "type": "module",
@@ -28,11 +28,6 @@
     "imap",
     "proton-bridge"
   ],
-  "author": {
-    "name": "The Sirency Collective",
-    "email": "contact@sirency.com",
-    "url": "https://sirency.com"
-  },
   "license": "MIT",
   "homepage": "https://github.com/ronamosa/protonmail-pro-mcp#readme",
   "repository": {
