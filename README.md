@@ -13,30 +13,7 @@
 
 Send, read, search, and organize emails from Claude Code, Claude Desktop, Cursor, or any MCP-compatible client.
 
-```mermaid
-flowchart LR
-  subgraph clients [" "]
-    direction TB
-    CC["Claude Code"]
-    CD["Claude Desktop"]
-    CU["Cursor"]
-  end
-
-  MCP["protonmail-pro-mcp<br/>16 tools &middot; Zod validated"]
-
-  subgraph mail [" "]
-    direction TB
-    SMTP["smtp.protonmail.ch"]
-    Bridge["Proton Bridge"]
-  end
-
-  PM(("ProtonMail"))
-
-  CC & CD & CU -->|stdio / HTTP| MCP
-  MCP -->|"SMTP :587"| SMTP
-  MCP -->|"IMAP :1143"| Bridge
-  SMTP & Bridge --> PM
-```
+![Overview](https://raw.githubusercontent.com/ronamosa/protonmail-pro-mcp/main/docs/images/overview.svg)
 
 </div>
 
@@ -197,73 +174,7 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph clients [MCP Clients]
-    ClaudeCode[Claude Code]
-    ClaudeDesktop[Claude Desktop]
-    CursorIDE[Cursor]
-  end
-
-  subgraph transport [Transport Layer]
-    STDIO[stdio]
-    HTTP["Streamable HTTP<br/>:3000/mcp"]
-  end
-
-  subgraph server [protonmail-pro-mcp]
-    McpServer["McpServer<br/>Zod validation"]
-
-    subgraph toolGroups [Tools]
-      direction TB
-      Sending["send_email<br/>send_test_email"]
-      Reading["get_emails<br/>get_email_by_id<br/>search_emails"]
-      Drafts["create_draft / update_draft<br/>delete_draft / send_draft"]
-      Actions["mark_read / star<br/>move / delete"]
-      FolderTools["get_folders<br/>sync_folders"]
-      SystemTools["connection_status"]
-    end
-
-    subgraph services [Services]
-      SmtpSvc["SMTP Service<br/>nodemailer"]
-      ImapSvc["IMAP Service<br/>imapflow"]
-    end
-  end
-
-  subgraph infra [ProtonMail Infrastructure]
-    SmtpServer["smtp.protonmail.ch<br/>:587 STARTTLS"]
-    Bridge["Proton Bridge<br/>127.0.0.1:1143"]
-    ProtonServers["ProtonMail<br/>Servers"]
-  end
-
-  ClaudeCode --> STDIO
-  ClaudeDesktop --> STDIO
-  CursorIDE --> STDIO
-  ClaudeCode -.-> HTTP
-
-  STDIO --> McpServer
-  HTTP --> McpServer
-
-  McpServer --> Sending
-  McpServer --> Reading
-  McpServer --> Drafts
-  McpServer --> Actions
-  McpServer --> FolderTools
-  McpServer --> SystemTools
-
-  Sending --> SmtpSvc
-  Drafts --> SmtpSvc
-  Drafts --> ImapSvc
-  SystemTools --> SmtpSvc
-  Reading --> ImapSvc
-  Actions --> ImapSvc
-  FolderTools --> ImapSvc
-  SystemTools --> ImapSvc
-
-  SmtpSvc -->|"SMTP / TLS"| SmtpServer
-  ImapSvc -->|"IMAP"| Bridge
-  SmtpServer --> ProtonServers
-  Bridge -->|"encrypted tunnel"| ProtonServers
-```
+![Architecture](https://raw.githubusercontent.com/ronamosa/protonmail-pro-mcp/main/docs/images/architecture.svg)
 
 <details>
 <summary><strong>Project structure</strong></summary>

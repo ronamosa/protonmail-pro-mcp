@@ -1,0 +1,22 @@
+flowchart LR
+  subgraph clients [" "]
+    direction TB
+    CC["Claude Code"]
+    CD["Claude Desktop"]
+    CU["Cursor"]
+  end
+
+  MCP["protonmail-pro-mcp<br/>16 tools &middot; Zod validated"]
+
+  subgraph mail [" "]
+    direction TB
+    SMTP["smtp.protonmail.ch"]
+    Bridge["Proton Bridge"]
+  end
+
+  PM(("ProtonMail"))
+
+  CC & CD & CU -->|stdio / HTTP| MCP
+  MCP -->|"SMTP :587"| SMTP
+  MCP -->|"IMAP :1143"| Bridge
+  SMTP & Bridge --> PM
