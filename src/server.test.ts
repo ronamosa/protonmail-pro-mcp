@@ -98,6 +98,10 @@ describe("server tool registration", () => {
     expect(tool).toBeDefined();
     expect(tool!.inputSchema.required).toContain("emailId");
     expect(tool!.inputSchema.required).toContain("filename");
+    expect(tool!.inputSchema.required).not.toContain("index");
+    const props = tool!.inputSchema.properties as Record<string, { type?: string }>;
+    expect(props.index).toBeDefined();
+    expect(props.index.type).toBe("integer");
     expect(tool!.annotations?.readOnlyHint).toBe(true);
   });
 

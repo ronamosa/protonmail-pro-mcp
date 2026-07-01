@@ -4,11 +4,17 @@ export interface EmailAddress {
 }
 
 export interface AttachmentMeta {
+  index: number;
   filename: string;
   contentType: string;
   size: number;
   cid?: string;
 }
+
+export type AttachmentResult =
+  | { filename: string; contentType: string; content: string }
+  | { error: "ambiguous"; filename: string; candidates: AttachmentMeta[] }
+  | { error: "index_mismatch"; index: number; filename: string; actualFilename: string };
 
 export interface EmailMessage {
   id: string;
@@ -96,7 +102,8 @@ export interface ImapService {
   getAttachment(
     emailId: string,
     filename: string,
-  ): Promise<{ filename: string; contentType: string; content: string } | null>;
+    index?: number,
+  ): Promise<AttachmentResult | null>;
   appendMessage(
     folder: string,
     rawMessage: string | Buffer,

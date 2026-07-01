@@ -158,7 +158,8 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 | **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, attachments |
 | | `send_test_email` | Quick test email to verify SMTP |
 | **Read** | `get_emails` | Fetch from a folder with pagination |
-| | `get_email_by_id` | Full email with body and headers |
+| | `get_email_by_id` | Full email with body, headers, and attachment metadata (includes `index`) |
+| | `get_attachment` | Download an attachment by `emailId` and `filename`; pass `index` when filenames duplicate |
 | | `search_emails` | Filter by from, to, subject, date, flags, attachments |
 | **Drafts** | `create_draft` | Create a new draft in the Drafts folder |
 | | `update_draft` | Replace an existing draft with new content |

@@ -137,6 +137,14 @@ export function registerReadingTools(
     {
       emailId: z.string().describe("Email ID (format: folder:uid)"),
       filename: z.string().describe("Attachment filename to retrieve"),
+      index: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+          "0-based attachment index from get_email_by_id; required when filename is duplicated",
+        ),
     },
     {
       title: "Get Attachment",
@@ -144,10 +152,10 @@ export function registerReadingTools(
       destructiveHint: false,
       openWorldHint: true,
     },
-    async ({ emailId, filename }) => {
+    async ({ emailId, filename, index }) => {
       try {
-        const attachment = await imap.getAttachment(emailId, filename);
-        if (!attachment) {
+        const result = await imap.getAttachment(emailId, filename, index);
+        if (!result) {
           return {
             content: [
               {
@@ -156,6 +164,40 @@ export function registerReadingTools(
                   error: "Attachment not found",
                   emailId,
                   filename,
+                  index,
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if ("error" in result) {
+          if (result.error === "ambiguous") {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    error: "ambiguous_filename",
+                    filename: result.filename,
+                    candidates: result.candidates,
+                  }),
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: "index_filename_mismatch",
+                  index: result.index,
+                  filename: result.filename,
+                  actualFilename: result.actualFilename,
                 }),
               },
             ],
@@ -167,7 +209,7 @@ export function registerReadingTools(
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(attachment, null, 2),
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
