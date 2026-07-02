@@ -71,6 +71,29 @@ cp .env.example .env   # then fill in your credentials
 
 > **Security** -- `PROTONMAIL_PASSWORD` is the bridge-generated password, not your ProtonMail login. Never commit `.env` files.
 
+### Local development (Cursor)
+
+To test this repo's built output instead of the published npm package:
+
+```bash
+npm run build
+cp .cursor/mcp.json.example .cursor/mcp.json   # add your Bridge credentials
+```
+
+Restart Cursor MCP (Settings → MCP → reload). The local server runs `node dist/index.js` from this workspace.
+
+### Manual attachment test (Bridge required)
+
+Sends a self-addressed email with two attachments named `dupe.txt`, then verifies ambiguous lookup and index-based retrieval:
+
+```bash
+cp .env.example .env          # if you have not already
+npm run build
+npm run test:attachments:manual
+```
+
+The script leaves the test email in INBOX so you can also exercise `get_email_by_id` and `get_attachment` from Cursor.
+
 ## Usage
 
 <details>
@@ -158,7 +181,8 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 | **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, attachments |
 | | `send_test_email` | Quick test email to verify SMTP |
 | **Read** | `get_emails` | Fetch from a folder with pagination |
-| | `get_email_by_id` | Full email with body and headers |
+| | `get_email_by_id` | Full email with body, headers, and attachment metadata (includes `index`) |
+| | `get_attachment` | Download an attachment by `emailId` and `filename`; pass `index` when filenames duplicate |
 | | `search_emails` | Filter by from, to, subject, date, flags, attachments |
 | **Drafts** | `create_draft` | Create a new draft in the Drafts folder |
 | | `update_draft` | Replace an existing draft with new content |

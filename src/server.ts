@@ -20,7 +20,7 @@ export interface ProtonMailServer {
 export function createServer(config: Config): ProtonMailServer {
   const mcpServer = new McpServer({
     name: "protonmail-mcp",
-    version: "2.0.0",
+    version: "2.1.0",
   });
 
   const smtp = createSmtpService(config);

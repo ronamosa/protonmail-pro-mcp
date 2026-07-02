@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import { simpleParser, type AddressObject } from "mailparser";
 import type { Config } from "../config.js";
 import type {
+  AttachmentResult,
   EmailMessage,
   EmailAddress,
   EmailFolder,
@@ -10,6 +11,7 @@ import type {
   DraftOptions,
 } from "../types.js";
 import { logger } from "../logger.js";
+import { normalizeFilename, resolveAttachment } from "./attachment.js";
 
 const stripInlineImages = (html: string) =>
   html.replace(/data:image\/[^;]+;base64,[^"'\s)]+/g, "[inline image removed]");
@@ -132,7 +134,8 @@ export function createImapService(config: Config): ImapService {
       isRead: flags?.has("\\Seen") ?? false,
       isStarred: flags?.has("\\Flagged") ?? false,
       hasAttachments: (parsed.attachments?.length ?? 0) > 0,
-      attachments: parsed.attachments?.map((a) => ({
+      attachments: parsed.attachments?.map((a, i) => ({
+        index: i,
         filename: a.filename || "unnamed",
         contentType: a.contentType,
         size: a.size,
@@ -224,7 +227,8 @@ export function createImapService(config: Config): ImapService {
     async getAttachment(
       emailId: string,
       filename: string,
-    ): Promise<{ filename: string; contentType: string; content: string } | null> {
+      index?: number,
+    ): Promise<AttachmentResult | null> {
       const { folder, uid } = idToUid(emailId);
       const imap = await ensureConnected();
       const lock = await imap.getMailboxLock(folder);
@@ -236,13 +240,30 @@ export function createImapService(config: Config): ImapService {
         if (!msg || !("source" in msg) || !msg.source) return null;
 
         const parsed = await simpleParser(Buffer.from(msg.source));
-        const attachment = parsed.attachments?.find(
-          (a) => (a.filename || "unnamed") === filename,
-        );
-        if (!attachment) return null;
+        const result = resolveAttachment(parsed.attachments ?? [], filename, index);
 
+        if (!result.ok) {
+          if (result.reason === "ambiguous") {
+            return {
+              error: "ambiguous",
+              filename: result.filename,
+              candidates: result.candidates,
+            };
+          }
+          if (result.reason === "index_mismatch") {
+            return {
+              error: "index_mismatch",
+              index: result.index,
+              filename: result.filename,
+              actualFilename: result.actualFilename,
+            };
+          }
+          return null;
+        }
+
+        const { attachment } = result;
         return {
-          filename: attachment.filename || "unnamed",
+          filename: normalizeFilename(attachment.filename),
           contentType: attachment.contentType,
           content: attachment.content.toString("base64"),
         };
