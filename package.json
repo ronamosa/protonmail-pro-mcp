@@ -1,6 +1,6 @@
 {
   "name": "@ronamosa/protonmail-pro-mcp",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "ProtonMail MCP server for email management via Proton Bridge. Supports SMTP sending, IMAP reading, and folder management through the Model Context Protocol.",
   "type": "module",
   "main": "dist/index.js",
