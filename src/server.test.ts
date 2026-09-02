@@ -27,12 +27,13 @@ describe("server tool registration", () => {
     await client.connect(clientTransport);
   });
 
-  it("lists all 17 expected tools", async () => {
+  it("lists all 18 expected tools", async () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
     expect(toolNames).toEqual([
       "create_draft",
+      "create_reply_draft",
       "delete_draft",
       "delete_email",
       "get_attachment",
@@ -107,5 +108,34 @@ describe("server tool registration", () => {
 
     expect(getTool).toBeDefined();
     expect(getTool!.annotations?.readOnlyHint).toBe(true);
+  });
+  it("create_reply_draft requires emailId and body only", async () => {
+    const result = await client.listTools();
+    const tool = result.tools.find((t) => t.name === "create_reply_draft");
+
+    expect(tool).toBeDefined();
+    expect(tool!.inputSchema.required).toContain("emailId");
+    expect(tool!.inputSchema.required).toContain("body");
+    expect(tool!.inputSchema.required).not.toContain("to");
+    expect(tool!.inputSchema.required).not.toContain("subject");
+  });
+
+  it("create_reply_draft is not marked read-only or destructive", async () => {
+    const result = await client.listTools();
+    const tool = result.tools.find((t) => t.name === "create_reply_draft");
+
+    expect(tool!.annotations?.readOnlyHint).toBe(false);
+    expect(tool!.annotations?.destructiveHint).toBe(false);
+  });
+
+  it("create_draft and send_email accept threading headers", async () => {
+    const result = await client.listTools();
+
+    for (const name of ["create_draft", "update_draft", "send_email"]) {
+      const tool = result.tools.find((t) => t.name === name);
+      const props = tool!.inputSchema.properties as Record<string, unknown>;
+      expect(props.inReplyTo, `${name}.inReplyTo`).toBeDefined();
+      expect(props.references, `${name}.references`).toBeDefined();
+    }
   });
 });

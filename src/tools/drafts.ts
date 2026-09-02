@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ImapService, SmtpService } from "../types.js";
-import { buildRfc822Message } from "../services/imap.js";
+import { buildRfc822Message, buildReplyHeaders } from "../services/imap.js";
 import { logger } from "../logger.js";
 
 export function registerDraftTools(
@@ -21,6 +21,8 @@ export function registerDraftTools(
       body: z.string().describe("Email body content"),
       isHtml: z.boolean().default(false).describe("Whether body is HTML"),
       replyTo: z.string().optional().describe("Reply-to email address"),
+      inReplyTo: z.string().optional().describe("RFC 5322 Message-ID of the message being replied to, e.g. '<abc@example.com>'. Prefer create_reply_draft, which derives this for you."),
+      references: z.array(z.string()).optional().describe("Full Message-ID chain of the conversation, oldest first. Prefer create_reply_draft, which derives this for you."),
     },
     {
       title: "Create Draft",
@@ -28,10 +30,10 @@ export function registerDraftTools(
       destructiveHint: false,
       openWorldHint: true,
     },
-    async ({ to, cc, bcc, subject, body, isHtml, replyTo }) => {
+    async ({ to, cc, bcc, subject, body, isHtml, replyTo, inReplyTo, references }) => {
       try {
         const raw = buildRfc822Message(
-          { to, cc, bcc, subject, body, isHtml, replyTo },
+          { to, cc, bcc, subject, body, isHtml, replyTo, inReplyTo, references },
           username,
         );
         const { uid } = await imap.appendMessage("Drafts", raw, ["\\Draft"]);
@@ -79,6 +81,8 @@ export function registerDraftTools(
       body: z.string().describe("Email body content"),
       isHtml: z.boolean().default(false).describe("Whether body is HTML"),
       replyTo: z.string().optional().describe("Reply-to email address"),
+      inReplyTo: z.string().optional().describe("RFC 5322 Message-ID of the message being replied to, e.g. '<abc@example.com>'. Prefer create_reply_draft, which derives this for you."),
+      references: z.array(z.string()).optional().describe("Full Message-ID chain of the conversation, oldest first. Prefer create_reply_draft, which derives this for you."),
     },
     {
       title: "Update Draft",
@@ -86,10 +90,10 @@ export function registerDraftTools(
       destructiveHint: false,
       openWorldHint: true,
     },
-    async ({ draftId, to, cc, bcc, subject, body, isHtml, replyTo }) => {
+    async ({ draftId, to, cc, bcc, subject, body, isHtml, replyTo, inReplyTo, references }) => {
       try {
         const raw = buildRfc822Message(
-          { to, cc, bcc, subject, body, isHtml, replyTo },
+          { to, cc, bcc, subject, body, isHtml, replyTo, inReplyTo, references },
           username,
         );
         const { uid } = await imap.appendMessage("Drafts", raw, ["\\Draft"]);
@@ -116,6 +120,144 @@ export function registerDraftTools(
         };
       } catch (err) {
         logger.error("Failed to update draft", "UpdateDraft", err);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: false,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.tool(
+    "create_reply_draft",
+    "Create a draft reply to an existing email, threaded correctly. Derives recipients, the Re: subject and the In-Reply-To/References headers from the parent message. Does not send.",
+    {
+      emailId: z.string().describe("ID of the message being replied to (format: folder:uid)"),
+      body: z.string().describe("Reply body content"),
+      isHtml: z.boolean().default(false).describe("Whether body is HTML"),
+      replyAll: z.boolean().default(false).describe("Include the parent's To and Cc recipients as well as its sender"),
+      to: z.string().optional().describe("Override the derived recipients, comma-separated"),
+      cc: z.string().optional().describe("Additional CC recipients, comma-separated"),
+      bcc: z.string().optional().describe("BCC recipients, comma-separated"),
+    },
+    {
+      title: "Create Reply Draft",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+    async ({ emailId, body, isHtml, replyAll, to, cc, bcc }) => {
+      try {
+        const parent = await imap.getEmailById(emailId);
+        if (!parent) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  success: false,
+                  error: "Parent message not found",
+                  emailId,
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const addresses = (list?: { address: string }[]) =>
+          (list ?? []).map((a) => a.address).filter(Boolean);
+
+        // Never reply to ourselves: drop our own address from derived recipients.
+        const self = username.toLowerCase();
+        const dedupe = (list: string[]) =>
+          [...new Set(list.map((a) => a.trim()).filter(Boolean))].filter(
+            (a) => a.toLowerCase() !== self,
+          );
+
+        const derivedTo = dedupe([
+          ...addresses(parent.from),
+          ...(replyAll ? addresses(parent.to) : []),
+        ]);
+        const derivedCc = dedupe([
+          ...(replyAll ? addresses(parent.cc) : []),
+          ...(cc ? cc.split(",") : []),
+        ]);
+
+        const recipients = to ?? derivedTo.join(", ");
+        if (!recipients) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  success: false,
+                  error: "Could not determine a recipient from the parent message",
+                  emailId,
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const subject = /^re:/i.test(parent.subject)
+          ? parent.subject
+          : `Re: ${parent.subject}`;
+
+        const { inReplyTo, references } = buildReplyHeaders(parent);
+        if (!inReplyTo) {
+          logger.warn(
+            `Parent ${emailId} has no Message-ID; reply will group by subject only`,
+            "CreateReplyDraft",
+          );
+        }
+
+        const raw = buildRfc822Message(
+          {
+            to: recipients,
+            cc: derivedCc.length > 0 ? derivedCc.join(", ") : undefined,
+            bcc,
+            subject,
+            body,
+            isHtml,
+            inReplyTo,
+            references,
+          },
+          username,
+        );
+        const { uid } = await imap.appendMessage("Drafts", raw, ["\\Draft"]);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  draftId: `Drafts:${uid}`,
+                  inReplyToParent: emailId,
+                  to: recipients,
+                  cc: derivedCc.length > 0 ? derivedCc.join(", ") : undefined,
+                  subject,
+                  threaded: !!inReplyTo,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        logger.error("Failed to create reply draft", "CreateReplyDraft", err);
         return {
           content: [
             {
@@ -229,6 +371,8 @@ export function registerDraftTools(
           subject: email.subject,
           body: email.html ?? email.body ?? "",
           isHtml: !!email.html,
+          inReplyTo: email.inReplyTo,
+          references: email.references,
         });
 
         await imap.deleteEmail(draftId);

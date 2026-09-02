@@ -52,6 +52,8 @@ export function createSmtpService(config: Config): SmtpService {
         bcc: options.bcc,
         subject: options.subject,
         replyTo: options.replyTo,
+        inReplyTo: options.inReplyTo,
+        references: options.references,
         priority: priorityMap[options.priority ?? "normal"] as
           | "high"
           | "normal"

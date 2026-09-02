@@ -23,6 +23,8 @@ export function registerSendingTools(
         .default("normal")
         .describe("Email priority"),
       replyTo: z.string().optional().describe("Reply-to email address"),
+      inReplyTo: z.string().optional().describe("RFC 5322 Message-ID of the message being replied to, e.g. '<abc@example.com>'"),
+      references: z.array(z.string()).optional().describe("Full Message-ID chain of the conversation, oldest first"),
       attachments: z
         .array(
           z.object({
@@ -40,7 +42,7 @@ export function registerSendingTools(
       destructiveHint: false,
       openWorldHint: true,
     },
-    async ({ to, cc, bcc, subject, body, isHtml, priority, replyTo, attachments }) => {
+    async ({ to, cc, bcc, subject, body, isHtml, priority, replyTo, inReplyTo, references, attachments }) => {
       try {
         const result = await smtp.send({
           to,
@@ -51,6 +53,8 @@ export function registerSendingTools(
           isHtml,
           priority,
           replyTo,
+          inReplyTo,
+          references,
           attachments,
         });
 
