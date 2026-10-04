@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ImapFlow } from "imapflow";
 import { simpleParser, type AddressObject } from "mailparser";
 import type { Config } from "../config.js";
@@ -46,6 +47,45 @@ function idToUid(id: string): { folder: string; uid: number } {
   return { folder: id.slice(0, sep), uid: parseInt(id.slice(sep + 1), 10) };
 }
 
+/**
+ * mailparser returns `references` as a string when there is one, an array when
+ * there are several, and undefined when there are none. Normalise to an array.
+ */
+export function normaliseReferences(
+  input: string | string[] | undefined,
+): string[] | undefined {
+  if (!input) return undefined;
+  const list = Array.isArray(input) ? input : [input];
+  const cleaned = list.map((r) => r.trim()).filter((r) => r.length > 0);
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/**
+ * Build the In-Reply-To and References values for a reply to `parent`.
+ *
+ * Per RFC 5322 §3.6.4 the reply's References is the parent's References chain
+ * with the parent's own Message-ID appended. Without this a reply threads at
+ * most one level deep, and not at all in clients that ignore In-Reply-To.
+ */
+export function buildReplyHeaders(parent: {
+  messageId?: string;
+  references?: string[];
+}): { inReplyTo?: string; references?: string[] } {
+  if (!parent.messageId) {
+    return { inReplyTo: undefined, references: parent.references };
+  }
+  const chain = [...(parent.references ?? [])];
+  if (!chain.includes(parent.messageId)) chain.push(parent.messageId);
+  return { inReplyTo: parent.messageId, references: chain };
+}
+
+/** Generate an RFC 5322 Message-ID, using the sender's domain. */
+export function generateMessageId(fromAddress: string): string {
+  const at = fromAddress.lastIndexOf("@");
+  const domain = at === -1 ? "localhost" : fromAddress.slice(at + 1).trim();
+  return `<${Date.now()}.${randomUUID()}@${domain}>`;
+}
+
 export function buildRfc822Message(
   options: DraftOptions,
   fromAddress: string,
@@ -58,6 +98,12 @@ export function buildRfc822Message(
   lines.push(`Subject: ${options.subject}`);
   if (options.replyTo) lines.push(`Reply-To: ${options.replyTo}`);
   lines.push(`Date: ${new Date().toUTCString()}`);
+  lines.push(`Message-ID: ${options.messageId ?? generateMessageId(fromAddress)}`);
+  if (options.inReplyTo) lines.push(`In-Reply-To: ${options.inReplyTo}`);
+  if (options.references?.length) {
+    // Folded per RFC 5322 §2.2.3 — the chain outgrows one line on a long thread.
+    lines.push(`References: ${options.references.join("\r\n ")}`);
+  }
   lines.push("MIME-Version: 1.0");
   lines.push(
     options.isHtml
@@ -143,6 +189,9 @@ export function createImapService(config: Config): ImapService {
       })),
       folder,
       snippet: parsed.text?.slice(0, 200),
+      messageId: parsed.messageId || undefined,
+      inReplyTo: parsed.inReplyTo || undefined,
+      references: normaliseReferences(parsed.references),
     };
   }
 

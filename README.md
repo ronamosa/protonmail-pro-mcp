@@ -178,13 +178,14 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 
 | | Tool | Description |
 |:--|:-----|:------------|
-| **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, attachments |
+| **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, threading, attachments |
 | | `send_test_email` | Quick test email to verify SMTP |
 | **Read** | `get_emails` | Fetch from a folder with pagination |
 | | `get_email_by_id` | Full email with body, headers, and attachment metadata (includes `index`) |
 | | `get_attachment` | Download an attachment by `emailId` and `filename`; pass `index` when filenames duplicate |
 | | `search_emails` | Filter by from, to, subject, date, flags, attachments |
 | **Drafts** | `create_draft` | Create a new draft in the Drafts folder |
+| | `create_reply_draft` | Draft a threaded reply — derives recipients, `Re:` subject and threading headers from the parent |
 | | `update_draft` | Replace an existing draft with new content |
 | | `delete_draft` | Delete a draft |
 | | `send_draft` | Send a draft via SMTP and remove it from Drafts |
@@ -195,6 +196,29 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 | **Folders** | `get_folders` | List all folders with message counts |
 | | `sync_folders` | Force-refresh folder list |
 | **System** | `get_connection_status` | SMTP and IMAP connection health |
+
+### Threading
+
+Replies thread when the message carries `In-Reply-To` and `References` (RFC 5322 §3.6.4).
+Subject-line matching alone is not threading — Gmail happens to group on it, most clients do not.
+
+`create_reply_draft` is the tool to reach for: give it the parent's `emailId` and a body, and it
+derives the recipients, the `Re:` subject and both headers itself. Assembling the chain by hand is
+easy to get wrong, and a wrong chain threads one level deep and then breaks.
+
+```
+create_reply_draft({ emailId: "INBOX:4821", body: "Sounds good." })
+```
+
+`create_draft`, `update_draft` and `send_email` also accept `inReplyTo` and `references` directly
+for cases the helper does not cover.
+
+Every outgoing message now carries a generated `Message-ID`, so replies *to* your own sent mail
+thread as well. `send_draft` forwards the draft's threading headers to SMTP — without that a
+correctly threaded draft would send un-threaded.
+
+A parent with no `Message-ID` cannot be threaded to. `create_reply_draft` returns
+`threaded: false` in that case rather than pretending otherwise.
 
 ## Architecture
 
@@ -216,7 +240,7 @@ src/
   tools/
     sending.ts        send_email, send_test_email
     reading.ts        get_emails, get_email_by_id, search_emails
-    drafts.ts         create_draft, update_draft, delete_draft, send_draft
+    drafts.ts         create_draft, create_reply_draft, update_draft, delete_draft, send_draft
     actions.ts        mark_email_read, star_email, move_email, delete_email
     folders.ts        get_folders, sync_folders
     system.ts         get_connection_status

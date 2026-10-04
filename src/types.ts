@@ -33,6 +33,9 @@ export interface EmailMessage {
   attachments?: AttachmentMeta[];
   folder: string;
   snippet?: string;
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string[];
 }
 
 export interface EmailFolder {
@@ -57,6 +60,12 @@ export interface DraftOptions {
   body: string;
   isHtml?: boolean;
   replyTo?: string;
+  /** Message-ID for this message. Generated when omitted. */
+  messageId?: string;
+  /** RFC 5322 Message-ID of the message being replied to. */
+  inReplyTo?: string;
+  /** Full Message-ID chain of the conversation, oldest first. */
+  references?: string[];
 }
 
 export interface SendEmailOptions {
@@ -68,6 +77,10 @@ export interface SendEmailOptions {
   isHtml?: boolean;
   priority?: "high" | "normal" | "low";
   replyTo?: string;
+  /** RFC 5322 Message-ID of the message being replied to. */
+  inReplyTo?: string;
+  /** Full Message-ID chain of the conversation, oldest first. */
+  references?: string[];
   attachments?: Array<{
     filename: string;
     content: string;
