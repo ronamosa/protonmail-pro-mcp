@@ -14,6 +14,7 @@ yarn-error.log*
 # IDE
 .vscode/
 .idea/
+.cursor/mcp.json
 *.swp
 *.swo
 *~

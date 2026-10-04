@@ -5,7 +5,7 @@
 **Email management for AI agents through ProtonMail and Proton Bridge**
 
 [![CI](https://github.com/ronamosa/protonmail-pro-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ronamosa/protonmail-pro-mcp/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@sirency/protonmail-pro-mcp)](https://www.npmjs.com/package/@sirency/protonmail-pro-mcp)
+[![npm](https://img.shields.io/npm/v/@ronamosa/protonmail-pro-mcp)](https://www.npmjs.com/package/@ronamosa/protonmail-pro-mcp)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-v1.29-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -13,30 +13,7 @@
 
 Send, read, search, and organize emails from Claude Code, Claude Desktop, Cursor, or any MCP-compatible client.
 
-```mermaid
-flowchart LR
-  subgraph clients [" "]
-    direction TB
-    CC["Claude Code"]
-    CD["Claude Desktop"]
-    CU["Cursor"]
-  end
-
-  MCP["protonmail-pro-mcp<br/>16 tools &middot; Zod validated"]
-
-  subgraph mail [" "]
-    direction TB
-    SMTP["smtp.protonmail.ch"]
-    Bridge["Proton Bridge"]
-  end
-
-  PM(("ProtonMail"))
-
-  CC & CD & CU -->|stdio / HTTP| MCP
-  MCP -->|"SMTP :587"| SMTP
-  MCP -->|"IMAP :1143"| Bridge
-  SMTP & Bridge --> PM
-```
+![Overview](https://raw.githubusercontent.com/ronamosa/protonmail-pro-mcp/main/docs/images/overview.svg)
 
 </div>
 
@@ -47,13 +24,13 @@ flowchart LR
 ### Install from npm (recommended)
 
 ```bash
-npx @sirency/protonmail-pro-mcp
+npx @ronamosa/protonmail-pro-mcp
 ```
 
 Or install globally:
 
 ```bash
-npm install -g @sirency/protonmail-pro-mcp
+npm install -g @ronamosa/protonmail-pro-mcp
 protonmail-pro-mcp
 ```
 
@@ -94,6 +71,29 @@ cp .env.example .env   # then fill in your credentials
 
 > **Security** -- `PROTONMAIL_PASSWORD` is the bridge-generated password, not your ProtonMail login. Never commit `.env` files.
 
+### Local development (Cursor)
+
+To test this repo's built output instead of the published npm package:
+
+```bash
+npm run build
+cp .cursor/mcp.json.example .cursor/mcp.json   # add your Bridge credentials
+```
+
+Restart Cursor MCP (Settings → MCP → reload). The local server runs `node dist/index.js` from this workspace.
+
+### Manual attachment test (Bridge required)
+
+Sends a self-addressed email with two attachments named `dupe.txt`, then verifies ambiguous lookup and index-based retrieval:
+
+```bash
+cp .env.example .env          # if you have not already
+npm run build
+npm run test:attachments:manual
+```
+
+The script leaves the test email in INBOX so you can also exercise `get_email_by_id` and `get_attachment` from Cursor.
+
 ## Usage
 
 <details>
@@ -107,7 +107,7 @@ Add to `~/.claude.json` under `mcpServers`, or run `claude mcp add`:
     "protonmail": {
       "type": "stdio",
       "command": "npx",
-      "args": ["@sirency/protonmail-pro-mcp"],
+      "args": ["@ronamosa/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -129,7 +129,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
   "mcpServers": {
     "protonmail": {
       "command": "npx",
-      "args": ["@sirency/protonmail-pro-mcp"],
+      "args": ["@ronamosa/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -151,7 +151,7 @@ Add to `.cursor/mcp.json` in your project:
   "mcpServers": {
     "protonmail": {
       "command": "npx",
-      "args": ["@sirency/protonmail-pro-mcp"],
+      "args": ["@ronamosa/protonmail-pro-mcp"],
       "env": {
         "PROTONMAIL_USERNAME": "you@protonmail.com",
         "PROTONMAIL_PASSWORD": "your-bridge-password"
@@ -181,7 +181,8 @@ Endpoints: `POST /mcp`, `GET /mcp`, `DELETE /mcp` (Streamable HTTP). Health chec
 | **Send** | `send_email` | Send with to/cc/bcc, HTML, priority, reply-to, threading, attachments |
 | | `send_test_email` | Quick test email to verify SMTP |
 | **Read** | `get_emails` | Fetch from a folder with pagination |
-| | `get_email_by_id` | Full email with body and headers |
+| | `get_email_by_id` | Full email with body, headers, and attachment metadata (includes `index`) |
+| | `get_attachment` | Download an attachment by `emailId` and `filename`; pass `index` when filenames duplicate |
 | | `search_emails` | Filter by from, to, subject, date, flags, attachments |
 | **Drafts** | `create_draft` | Create a new draft in the Drafts folder |
 | | `create_reply_draft` | Draft a threaded reply — derives recipients, `Re:` subject and threading headers from the parent |
@@ -221,73 +222,7 @@ A parent with no `Message-ID` cannot be threaded to. `create_reply_draft` return
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph clients [MCP Clients]
-    ClaudeCode[Claude Code]
-    ClaudeDesktop[Claude Desktop]
-    CursorIDE[Cursor]
-  end
-
-  subgraph transport [Transport Layer]
-    STDIO[stdio]
-    HTTP["Streamable HTTP<br/>:3000/mcp"]
-  end
-
-  subgraph server [protonmail-pro-mcp]
-    McpServer["McpServer<br/>Zod validation"]
-
-    subgraph toolGroups [Tools]
-      direction TB
-      Sending["send_email<br/>send_test_email"]
-      Reading["get_emails<br/>get_email_by_id<br/>search_emails"]
-      Drafts["create_draft / create_reply_draft<br/>update_draft / delete_draft / send_draft"]
-      Actions["mark_read / star<br/>move / delete"]
-      FolderTools["get_folders<br/>sync_folders"]
-      SystemTools["connection_status"]
-    end
-
-    subgraph services [Services]
-      SmtpSvc["SMTP Service<br/>nodemailer"]
-      ImapSvc["IMAP Service<br/>imapflow"]
-    end
-  end
-
-  subgraph infra [ProtonMail Infrastructure]
-    SmtpServer["smtp.protonmail.ch<br/>:587 STARTTLS"]
-    Bridge["Proton Bridge<br/>127.0.0.1:1143"]
-    ProtonServers["ProtonMail<br/>Servers"]
-  end
-
-  ClaudeCode --> STDIO
-  ClaudeDesktop --> STDIO
-  CursorIDE --> STDIO
-  ClaudeCode -.-> HTTP
-
-  STDIO --> McpServer
-  HTTP --> McpServer
-
-  McpServer --> Sending
-  McpServer --> Reading
-  McpServer --> Drafts
-  McpServer --> Actions
-  McpServer --> FolderTools
-  McpServer --> SystemTools
-
-  Sending --> SmtpSvc
-  Drafts --> SmtpSvc
-  Drafts --> ImapSvc
-  SystemTools --> SmtpSvc
-  Reading --> ImapSvc
-  Actions --> ImapSvc
-  FolderTools --> ImapSvc
-  SystemTools --> ImapSvc
-
-  SmtpSvc -->|"SMTP / TLS"| SmtpServer
-  ImapSvc -->|"IMAP"| Bridge
-  SmtpServer --> ProtonServers
-  Bridge -->|"encrypted tunnel"| ProtonServers
-```
+![Architecture](https://raw.githubusercontent.com/ronamosa/protonmail-pro-mcp/main/docs/images/architecture.svg)
 
 <details>
 <summary><strong>Project structure</strong></summary>
